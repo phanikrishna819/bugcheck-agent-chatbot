@@ -22,9 +22,3 @@ services:
     plan: free
     rootDir: frontend
     dockerfilePath: ./Dockerfile
-    envVars:
-      - key: BACKEND_URL
-        fromService:
-          name: bugcheck-agent-backend
-          type: web
-          property: url
