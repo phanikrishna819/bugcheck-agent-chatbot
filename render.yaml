@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: bugcheck-agent-chatbot-backend
+    name: bugcheck-agent-backend
     runtime: docker
     region: oregon
     plan: free
@@ -16,7 +16,7 @@ services:
         value: "/tmp/opencode"
 
   - type: web
-    name: bugcheck-agent-chatbot-frontend
+    name: bugcheck-agent-frontend
     runtime: docker
     region: oregon
     plan: free
