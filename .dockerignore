@@ -1,0 +1,7 @@
+frontend/
+.git/
+.vscode/
+target/
+dist/
+*.md
+.env*
