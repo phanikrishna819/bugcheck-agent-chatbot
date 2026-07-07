@@ -13,14 +13,12 @@ services:
       - key: AGENT_ASSETS_DIR
         value: "/tmp/opencode"
 
-  - type: static_site
+  - type: web
     name: bugcheck-agent-frontend
-    runtime: static
+    runtime: docker
     region: oregon
     plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    dockerfilePath: ./Dockerfile.frontend
     envVars:
       - key: VITE_API_BASE_URL
         sync: false
