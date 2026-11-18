@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { marked } from 'marked';
-import { createSession, getSkills, registerWorkspace, sendMessage } from './api';
+import { createSession, downloadFixesPdf, getSkills, registerWorkspace, sendMessage } from './api';
 import type { ChatMessage, ChatSession, SkillsResponse } from './types';
 
-const examplePrompt = 'Run bugcheck on the current diff. Use the uploaded bugcheck agent and skills. Apply minimal fixes when needed.';
+const examplePrompt = 'Scan this repository for bugs. Briefly list only the files that contain real issues, with file:line evidence and the minimal fix.';
 
 export function App() {
   const [session, setSession] = useState<ChatSession | null>(null);
@@ -12,6 +12,7 @@ export function App() {
   const [allowEdits, setAllowEdits] = useState(true);
   const [message, setMessage] = useState(examplePrompt);
   const [busy, setBusy] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,6 +35,31 @@ export function App() {
       setWorkspaceRoot(result.path);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to register workspace.');
+    }
+  }
+
+  async function handleDownloadPdf() {
+    if (!workspaceRoot.trim()) {
+      setError('Register a workspace first.');
+      return;
+    }
+    setError(null);
+    setReportBusy(true);
+    try {
+      const current = await ensureSession();
+      const blob = await downloadFixesPdf(current.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `buggy-fixes-${current.id.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to generate the PDF report.');
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -64,23 +90,26 @@ export function App() {
         <div className="brand">
           <span className="brand-mark">B</span>
           <div>
-            <h1>Bugcheck Agent</h1>
-            <p>OpenAI-powered code review and fix harness</p>
+            <h1>Buggy</h1>
+            <p>AI code review and fix agent</p>
           </div>
         </div>
 
         <section className="panel">
           <h2>Workspace</h2>
           <label>
-            Repository path
+            Repository path or git URL
             <input
               value={workspaceRoot}
               onChange={(event) => setWorkspaceRoot(event.target.value)}
-              placeholder="C:\\Users\\phani\\some-project"
+              placeholder="https://github.com/org/repo"
             />
           </label>
-          <button type="button" onClick={handleRegisterWorkspace} disabled={!workspaceRoot.trim() || busy}>
+          <button type="button" onClick={handleRegisterWorkspace} disabled={!workspaceRoot.trim() || busy || reportBusy}>
             Register Workspace
+          </button>
+          <button type="button" onClick={handleDownloadPdf} disabled={!workspaceRoot.trim() || busy || reportBusy}>
+            {reportBusy ? 'Generating PDF...' : 'Download fixes PDF'}
           </button>
           <label className="toggle">
             <input type="checkbox" checked={allowEdits} onChange={(event) => setAllowEdits(event.target.checked)} />
@@ -102,7 +131,7 @@ export function App() {
       <main className="chat">
         <header className="chat-header">
           <div>
-            <h2>Agent Chat</h2>
+            <h2>Buggy Chat</h2>
             <p>{session ? `Session ${session.id.slice(0, 8)}` : 'Start by registering a workspace, then send a message.'}</p>
           </div>
           <span className={allowEdits ? 'status edits' : 'status readonly'}>{allowEdits ? 'Edits enabled' : 'Read only'}</span>
@@ -111,10 +140,10 @@ export function App() {
         {error && <div className="error">{error}</div>}
 
         <div className="messages">
-          {messages.map((item, index) => (
+          {messages.filter((item) => item.role !== 'tool').map((item, index) => (
             <MessageBubble key={`${item.createdAt}-${index}`} message={item} />
           ))}
-          {busy && <div className="thinking">Agent is working through tools and skills...</div>}
+          {busy && <div className="thinking">Buggy is scanning the repository...</div>}
         </div>
 
         <form className="composer" onSubmit={handleSubmit}>
@@ -128,11 +157,15 @@ export function App() {
   );
 }
 
+function roleLabel(role: ChatMessage['role']) {
+  return role === 'user' ? 'You' : 'Buggy';
+}
+
 function MessageBubble({ message }: { message: ChatMessage }) {
   const html = marked.parse(message.content, { async: false }) as string;
   return (
     <article className={`message ${message.role}`}>
-      <div className="message-role">{message.role}</div>
+      <div className="message-role">{roleLabel(message.role)}</div>
       <div className="message-content" dangerouslySetInnerHTML={{ __html: html }} />
     </article>
   );

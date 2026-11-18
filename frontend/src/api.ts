@@ -38,3 +38,12 @@ export function registerWorkspace(path: string) {
     body: JSON.stringify({ path })
   });
 }
+
+export async function downloadFixesPdf(sessionId: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/report.pdf`, { method: 'POST' });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error ?? response.statusText);
+  }
+  return response.blob();
+}
