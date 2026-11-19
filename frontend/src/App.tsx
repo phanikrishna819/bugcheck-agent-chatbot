@@ -13,11 +13,22 @@ export function App() {
   const [message, setMessage] = useState(examplePrompt);
   const [busy, setBusy] = useState(false);
   const [reportBusy, setReportBusy] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getSkills().then(setSkills).catch((err) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   async function ensureSession() {
     if (session) {
@@ -29,12 +40,27 @@ export function App() {
   }
 
   async function handleRegisterWorkspace() {
+    if (!workspaceRoot.trim()) {
+      return;
+    }
     setError(null);
+    setRegistering(true);
     try {
       const result = await registerWorkspace(workspaceRoot);
       setWorkspaceRoot(result.path);
+      setRegistered(true);
+      if (session && session.workspaceRoot !== result.path) {
+        setSession(null);
+      }
+      setToast({ kind: 'success', text: `Workspace registered: ${result.path}` });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to register workspace.');
+      setRegistered(false);
+      setToast({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Unable to register workspace.'
+      });
+    } finally {
+      setRegistering(false);
     }
   }
 
@@ -86,6 +112,11 @@ export function App() {
 
   return (
     <div className="shell">
+      {toast && (
+        <div className={`toast ${toast.kind}`} role="status">
+          {toast.text}
+        </div>
+      )}
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">B</span>
@@ -101,12 +132,19 @@ export function App() {
             Repository path or git URL
             <input
               value={workspaceRoot}
-              onChange={(event) => setWorkspaceRoot(event.target.value)}
+              onChange={(event) => {
+                setWorkspaceRoot(event.target.value);
+                setRegistered(false);
+              }}
               placeholder="https://github.com/org/repo"
             />
           </label>
-          <button type="button" onClick={handleRegisterWorkspace} disabled={!workspaceRoot.trim() || busy || reportBusy}>
-            Register Workspace
+          <button
+            type="button"
+            onClick={handleRegisterWorkspace}
+            disabled={!workspaceRoot.trim() || busy || reportBusy || registering || registered}
+          >
+            {registering ? 'Registering...' : registered ? 'Registered' : 'Register Workspace'}
           </button>
           <button type="button" onClick={handleDownloadPdf} disabled={!workspaceRoot.trim() || busy || reportBusy}>
             {reportBusy ? 'Generating PDF...' : 'Download fixes PDF'}
