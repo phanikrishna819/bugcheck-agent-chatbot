@@ -178,6 +178,15 @@ export function App() {
         {error && <div className="error">{error}</div>}
 
         <div className="messages">
+          {messages.length === 0 && !busy && (
+            <div className="empty">
+              <span className="empty-logo">
+                <BuggyLogo size={64} />
+              </span>
+              <h3>Hi, I'm Buggy</h3>
+              <p>Register a repository above, then ask me to scan it. I'll report only the files that contain real bugs.</p>
+            </div>
+          )}
           {messages.filter((item) => item.role !== 'tool').map((item, index) => (
             <MessageBubble key={`${item.createdAt}-${index}`} message={item} />
           ))}
@@ -185,7 +194,7 @@ export function App() {
         </div>
 
         <form className="composer" onSubmit={handleSubmit}>
-          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={4} />
+          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={2} />
           <button type="submit" disabled={busy || !message.trim()}>
             {busy ? 'Running...' : 'Send'}
           </button>
@@ -201,10 +210,46 @@ function roleLabel(role: ChatMessage['role']) {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const html = marked.parse(message.content, { async: false }) as string;
+  const isUser = message.role === 'user';
   return (
     <article className={`message ${message.role}`}>
-      <div className="message-role">{roleLabel(message.role)}</div>
+      <div className="message-head">
+        {isUser ? (
+          <span className="avatar user" aria-hidden="true">Y</span>
+        ) : (
+          <span className="avatar" aria-hidden="true">
+            <BuggyLogo size={30} />
+          </span>
+        )}
+        <div className="message-role">{roleLabel(message.role)}</div>
+      </div>
       <div className="message-content" dangerouslySetInnerHTML={{ __html: html }} />
     </article>
+  );
+}
+
+function BuggyLogo({ size = 30 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" role="img" aria-label="Buggy">
+      <defs>
+        <linearGradient id="buggyLogoGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#67e8f9" />
+          <stop offset="1" stopColor="#2563eb" />
+        </linearGradient>
+      </defs>
+      <rect width="48" height="48" rx="14" fill="url(#buggyLogoGrad)" />
+      <g stroke="#04111f" strokeWidth="2.4" strokeLinecap="round" fill="none">
+        <path d="M18 15 C15 11 12.5 10 10 10" />
+        <path d="M30 15 C33 11 35.5 10 38 10" />
+        <path d="M13.5 25 H21" />
+        <path d="M13.5 32 H21" />
+        <path d="M27 25 H34.5" />
+        <path d="M27 32 H34.5" />
+      </g>
+      <ellipse cx="24" cy="28" rx="8.5" ry="11" fill="#04111f" />
+      <circle cx="21" cy="24" r="1.7" fill="#67e8f9" />
+      <circle cx="27" cy="24" r="1.7" fill="#67e8f9" />
+      <path d="M24 18 V38" stroke="#67e8f9" strokeWidth="1.3" opacity="0.55" />
+    </svg>
   );
 }
