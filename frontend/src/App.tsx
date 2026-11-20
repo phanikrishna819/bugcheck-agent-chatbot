@@ -9,6 +9,7 @@ export function App() {
   const [session, setSession] = useState<ChatSession | null>(null);
   const [skills, setSkills] = useState<SkillsResponse | null>(null);
   const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [sourceRef, setSourceRef] = useState('');
   const [allowEdits, setAllowEdits] = useState(true);
   const [message, setMessage] = useState(examplePrompt);
   const [busy, setBusy] = useState(false);
@@ -46,7 +47,9 @@ export function App() {
     setError(null);
     setRegistering(true);
     try {
-      const result = await registerWorkspace(workspaceRoot);
+      const source = workspaceRoot.trim();
+      const result = await registerWorkspace(source);
+      setSourceRef(source);
       setWorkspaceRoot(result.path);
       setRegistered(true);
       if (session && session.workspaceRoot !== result.path) {
@@ -69,6 +72,7 @@ export function App() {
       setError('Register a workspace first.');
       return;
     }
+    const source = sourceRef || workspaceRoot.trim();
     setError(null);
     setReportBusy(true);
     try {
@@ -82,11 +86,21 @@ export function App() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      resetAfterReport(source, 'success',
+        'Report downloaded. Session and temporary clone cleared; register again for another run.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to generate the PDF report.');
+      resetAfterReport(source, 'error',
+        err instanceof Error ? err.message : 'Unable to generate the PDF report.');
     } finally {
       setReportBusy(false);
     }
+  }
+
+  function resetAfterReport(source: string, kind: 'success' | 'error', text: string) {
+    setSession(null);
+    setRegistered(false);
+    setWorkspaceRoot(source);
+    setToast({ kind, text });
   }
 
   async function handleSubmit(event: FormEvent) {
